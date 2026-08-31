@@ -1,4 +1,4 @@
-"""Centralized application settings using Pydantic Settings."""
+"""Centralized application settings with Streamlit Cloud secrets fallback."""
 
 import os
 from pathlib import Path
@@ -7,17 +7,30 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def get_secret(key: str, default: str = "") -> str:
+    """Helper to fetch config from env, os.environ, or streamlit secrets."""
+    val = os.getenv(key, "")
+    if not val:
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets") and key in st.secrets:
+                val = str(st.secrets[key])
+        except Exception:
+            pass
+    return val or default
+
+
 class Settings(BaseSettings):
-    """Application configuration loaded from environment variables or .env."""
+    """Application configuration loaded from environment variables, .env, or Streamlit secrets."""
 
     # API Keys
     GOOGLE_API_KEY: str = ""
     GROQ_API_KEY: str = ""
 
     # Provider Selections
-    LLM_PROVIDER: str = "gemini"  # "gemini" or "groq"
-    LLM_MODEL: str = "gemini-3.5-flash"
-    EMBEDDING_PROVIDER: str = "gemini"  # "gemini" or "huggingface"
+    LLM_PROVIDER: str = "groq"  # "groq" or "gemini"
+    LLM_MODEL: str = "openai/gpt-oss-120b"
+    EMBEDDING_PROVIDER: str = "huggingface"  # "huggingface" or "gemini"
     EMBEDDING_MODEL: str = "models/gemini-embedding-001"
     HUGGINGFACE_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
 
@@ -44,4 +57,10 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+# Fallback to secrets if env values are empty
+if not settings.GOOGLE_API_KEY:
+    settings.GOOGLE_API_KEY = get_secret("GOOGLE_API_KEY")
+if not settings.GROQ_API_KEY:
+    settings.GROQ_API_KEY = get_secret("GROQ_API_KEY")
+
 settings.ensure_directories()

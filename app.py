@@ -59,7 +59,8 @@ def handle_clear_chat():
 
 
 def handle_clear_db(vector_manager: ChromaVectorStoreManager):
-    vector_manager.clear_all()
+    if vector_manager:
+        vector_manager.clear_all()
     st.session_state.processed_files = set()
     st.session_state.messages = []
     st.cache_resource.clear()
@@ -68,13 +69,14 @@ def handle_clear_db(vector_manager: ChromaVectorStoreManager):
 
 
 def handle_delete_file(vector_manager: ChromaVectorStoreManager, filename: str):
-    success = vector_manager.delete_document(filename)
-    if success:
-        st.session_state.processed_files.discard(filename)
-        st.success(f"Removed '{filename}' from database.")
-        st.rerun()
-    else:
-        st.error(f"Failed to delete '{filename}'.")
+    if vector_manager:
+        success = vector_manager.delete_document(filename)
+        if success:
+            st.session_state.processed_files.discard(filename)
+            st.success(f"Removed '{filename}' from database.")
+            st.rerun()
+        else:
+            st.error(f"Failed to delete '{filename}'.")
 
 
 def main():
@@ -83,25 +85,34 @@ def main():
 
     # 1. Render Sidebar first to read user's chosen provider
     indexed_files = set()
+    vector_manager = None
 
     # Pre-render sidebar
     config = render_sidebar(
         indexed_files=indexed_files,
         on_clear_chat=handle_clear_chat,
-        on_clear_db=lambda: handle_clear_db(vector_manager) if 'vector_manager' in locals() else None,
-        on_delete_file=lambda fname: handle_delete_file(vector_manager, fname) if 'vector_manager' in locals() else None,
+        on_clear_db=lambda: handle_clear_db(vector_manager),
+        on_delete_file=lambda fname: handle_delete_file(vector_manager, fname),
     )
 
-    api_key_to_use = config["api_key"] or (
-        settings.GOOGLE_API_KEY if config["llm_provider"] == "gemini" else settings.GROQ_API_KEY
-    )
+    # Resolve active API keys (from UI input or settings / Streamlit secrets)
+    user_key = config.get("api_key", "").strip()
+    active_google_key = user_key if config["llm_provider"] == "gemini" or config["embedding_provider"] == "gemini" else ""
+    if not active_google_key:
+        active_google_key = settings.GOOGLE_API_KEY
+
+    active_groq_key = user_key if config["llm_provider"] == "groq" else ""
+    if not active_groq_key:
+        active_groq_key = settings.GROQ_API_KEY
+
+    api_key_to_use = active_google_key if config["llm_provider"] == "gemini" else active_groq_key
 
     # Isolated collection per embedding provider (prevents dimension mismatch between 384 vs 3072)
     provider_collection_name = f"{settings.COLLECTION_NAME}_{config['embedding_provider']}"
 
-    # Initialize current embedding & store manager strictly based on chosen provider
+    # Initialize current embedding & store manager
     try:
-        embed_key = config["api_key"] if config["embedding_provider"] == "gemini" else settings.GOOGLE_API_KEY
+        embed_key = active_google_key if config["embedding_provider"] == "gemini" else ""
         embedding_model = load_embedding_model(
             provider=config["embedding_provider"],
             api_key=embed_key,
@@ -113,7 +124,10 @@ def main():
         )
         indexed_files = vector_manager.get_indexed_files()
     except Exception as e:
-        st.error(f"⚠️ Embedding Model Initialization Error: {str(e)}")
+        st.warning(
+            f"⚠️ **Embedding Notice**: {str(e)}\n\n"
+            "👉 Please enter your **Google API Key** in the sidebar or switch **Embedding Provider** to **`huggingface`** (runs 100% free with no key required)."
+        )
         st.stop()
 
     # 2. File Upload & Ingestion Section
@@ -184,7 +198,7 @@ def main():
         if not api_key_to_use:
             st.error(
                 f"⚠️ Please enter your {config['llm_provider'].capitalize()} API Key in the sidebar "
-                "or set it in your `.env` file to generate answers."
+                "or set it in your environment / secrets to generate answers."
             )
             st.stop()
 
