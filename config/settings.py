@@ -12,13 +12,13 @@ class Settings(BaseSettings):
 
     # API Keys
     GOOGLE_API_KEY: str = ""
-    OPENAI_API_KEY: str = ""
+    GROQ_API_KEY: str = ""
 
     # Provider Selections
-    LLM_PROVIDER: str = "gemini"  # "gemini" or "openai"
-    LLM_MODEL: str = "gemini-1.5-flash"
+    LLM_PROVIDER: str = "gemini"  # "gemini" or "groq"
+    LLM_MODEL: str = "gemini-3.5-flash"
     EMBEDDING_PROVIDER: str = "gemini"  # "gemini" or "huggingface"
-    EMBEDDING_MODEL: str = "models/embedding-001"
+    EMBEDDING_MODEL: str = "models/gemini-embedding-001"
     HUGGINGFACE_MODEL: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     # Vector Storage Paths

@@ -1,7 +1,9 @@
-"""Reusable UI helper components for Streamlit interface."""
+"""Reusable UI helper components for Streamlit interface with verified models."""
 
 from typing import List, Dict, Any, Callable
 import streamlit as st
+from generation.llm import list_available_groq_models
+from config.settings import settings
 
 
 def render_sources_accordion(sources: List[Dict[str, Any]]):
@@ -34,20 +36,13 @@ def render_sidebar(
         # Provider selection
         llm_provider = st.selectbox(
             "LLM Provider",
-            options=["gemini", "openai"],
+            options=["gemini", "groq"],
             index=0,
             help="Select the LLM provider for answering questions.",
         )
 
-        # Dynamic Model Options
-        if llm_provider == "gemini":
-            model_options = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
-            default_key_name = "GOOGLE_API_KEY"
-        else:
-            model_options = ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
-            default_key_name = "OPENAI_API_KEY"
-
-        llm_model = st.selectbox("LLM Model", options=model_options, index=0)
+        default_key_name = "GOOGLE_API_KEY" if llm_provider == "gemini" else "GROQ_API_KEY"
+        preset_key = settings.GOOGLE_API_KEY if llm_provider == "gemini" else settings.GROQ_API_KEY
 
         # API Key input (masked)
         api_key = st.text_input(
@@ -56,12 +51,47 @@ def render_sidebar(
             help=f"Enter key or leave blank if set in .env ({default_key_name})",
         )
 
+        effective_key = api_key or preset_key
+
+        # Model Options
+        if llm_provider == "gemini":
+            model_options = [
+                "gemini-3.5-flash",
+                "gemini-3.5-flash-lite",
+                "gemini-3.6-flash",
+                "gemini-flash-latest",
+                "gemini-pro-latest",
+            ]
+            llm_model = st.selectbox(
+                "LLM Model",
+                options=model_options,
+                index=0,
+                help="Google Gemini Models (Tested & Verified).",
+            )
+        else:
+            groq_models = list_available_groq_models(effective_key)
+            llm_model = st.selectbox(
+                "LLM Model",
+                options=groq_models,
+                index=0,
+                help="Active Groq Models (including openai/gpt-oss-120b and openai/gpt-oss-20b).",
+            )
+
+        # Allow custom model override
+        custom_model = st.text_input(
+            "Custom Model ID (Optional)",
+            value="",
+            help="Type an exact model ID to override the dropdown selection if desired.",
+        )
+        if custom_model.strip():
+            llm_model = custom_model.strip()
+
         # Embeddings Provider
         embedding_provider = st.selectbox(
             "Embedding Provider",
             options=["gemini", "huggingface"],
             index=0,
-            help="Gemini embeddings require an API key. HuggingFace runs locally on CPU.",
+            help="Gemini uses verified models/gemini-embedding-001. HuggingFace runs locally on CPU.",
         )
 
         st.divider()

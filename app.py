@@ -28,7 +28,7 @@ st.set_page_config(
 )
 
 
-# Cached resource factories
+# Cached resource factories keyed strictly by provider and collection
 @st.cache_resource(show_spinner=False)
 def load_embedding_model(provider: str, api_key: str):
     """Cache embedding model instance to avoid expensive reloads."""
@@ -36,10 +36,11 @@ def load_embedding_model(provider: str, api_key: str):
 
 
 @st.cache_resource(show_spinner=False)
-def load_vector_store(_embedding_function, persist_dir: str):
-    """Cache vector database connection manager."""
+def load_vector_store(_embedding_function, collection_name: str, persist_dir: str):
+    """Cache vector database connection manager isolated per collection name."""
     return ChromaVectorStoreManager(
         embedding_function=_embedding_function,
+        collection_name=collection_name,
         persist_directory=persist_dir,
     )
 
@@ -61,7 +62,8 @@ def handle_clear_db(vector_manager: ChromaVectorStoreManager):
     vector_manager.clear_all()
     st.session_state.processed_files = set()
     st.session_state.messages = []
-    st.success("Vector database reset successfully!")
+    st.cache_resource.clear()
+    st.success("Vector database and cache reset successfully!")
     st.rerun()
 
 
@@ -79,39 +81,37 @@ def main():
     st.title("📄 RAG Document Q&A Assistant")
     st.caption("Upload documents and ask questions grounded strictly in their content.")
 
-    # 1. Read UI configuration from sidebar
-    temp_vector_manager = None
+    # 1. Render Sidebar first to read user's chosen provider
     indexed_files = set()
-    try:
-        initial_embed = load_embedding_model(
-            provider=settings.EMBEDDING_PROVIDER,
-            api_key=settings.GOOGLE_API_KEY,
-        )
-        temp_vector_manager = load_vector_store(initial_embed, settings.CHROMA_PERSIST_DIRECTORY)
-        indexed_files = temp_vector_manager.get_indexed_files()
-    except Exception:
-        indexed_files = set()
 
-    # Render Sidebar
+    # Pre-render sidebar
     config = render_sidebar(
         indexed_files=indexed_files,
         on_clear_chat=handle_clear_chat,
-        on_clear_db=lambda: handle_clear_db(temp_vector_manager) if temp_vector_manager else None,
-        on_delete_file=lambda fname: handle_delete_file(temp_vector_manager, fname) if temp_vector_manager else None,
+        on_clear_db=lambda: handle_clear_db(vector_manager) if 'vector_manager' in locals() else None,
+        on_delete_file=lambda fname: handle_delete_file(vector_manager, fname) if 'vector_manager' in locals() else None,
     )
 
     api_key_to_use = config["api_key"] or (
-        settings.GOOGLE_API_KEY if config["llm_provider"] == "gemini" else settings.OPENAI_API_KEY
+        settings.GOOGLE_API_KEY if config["llm_provider"] == "gemini" else settings.GROQ_API_KEY
     )
 
-    # Initialize current embedding & store manager
+    # Isolated collection per embedding provider (prevents dimension mismatch between 384 vs 3072)
+    provider_collection_name = f"{settings.COLLECTION_NAME}_{config['embedding_provider']}"
+
+    # Initialize current embedding & store manager strictly based on chosen provider
     try:
-        embed_key = config["api_key"] or settings.GOOGLE_API_KEY
+        embed_key = config["api_key"] if config["embedding_provider"] == "gemini" else settings.GOOGLE_API_KEY
         embedding_model = load_embedding_model(
             provider=config["embedding_provider"],
             api_key=embed_key,
         )
-        vector_manager = load_vector_store(embedding_model, settings.CHROMA_PERSIST_DIRECTORY)
+        vector_manager = load_vector_store(
+            _embedding_function=embedding_model,
+            collection_name=provider_collection_name,
+            persist_dir=settings.CHROMA_PERSIST_DIRECTORY,
+        )
+        indexed_files = vector_manager.get_indexed_files()
     except Exception as e:
         st.error(f"⚠️ Embedding Model Initialization Error: {str(e)}")
         st.stop()
@@ -191,7 +191,7 @@ def main():
         # Check if database has files
         current_indexed = vector_manager.get_indexed_files()
         if not current_indexed:
-            st.warning("⚠️ No documents indexed yet. Please upload and process a PDF above first.")
+            st.warning(f"⚠️ No documents indexed yet with '{config['embedding_provider']}'. Please upload and process a PDF above.")
             st.stop()
 
         # Append user message

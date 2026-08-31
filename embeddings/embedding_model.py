@@ -22,7 +22,8 @@ def get_embedding_model(
             raise ValueError("Google API Key is required for Gemini embeddings.")
         from langchain_google_genai import GoogleGenerativeAIEmbeddings
 
-        embed_model = model_name or settings.EMBEDDING_MODEL
+        # Verified active embedding models on Gemini API: models/gemini-embedding-001 or models/gemini-embedding-2
+        embed_model = model_name or "models/gemini-embedding-001"
         logger.info(f"Initializing Google Gemini Embeddings ({embed_model})")
         return GoogleGenerativeAIEmbeddings(
             model=embed_model,

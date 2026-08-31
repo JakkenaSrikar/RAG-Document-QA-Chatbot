@@ -1,6 +1,6 @@
 # 📄 RAG-Based Document Q&A Chatbot
 
-A production-ready, interview-grade **Retrieval-Augmented Generation (RAG)** Document Question-Answering application built with **Python, LangChain, ChromaDB, Google Gemini API / OpenAI API, and Streamlit**.
+A production-ready, interview-grade **Retrieval-Augmented Generation (RAG)** Document Question-Answering application built with **Python, LangChain, ChromaDB, Google Gemini API, Groq API (Llama 3.3 / Mixtral), and Streamlit**.
 
 Users can upload single or multiple PDF documents, automatically index them into a local persistent vector database with semantic chunking and dense embeddings, and ask natural language questions with strictly grounded answers and full page-level source citations.
 
@@ -10,6 +10,7 @@ Users can upload single or multiple PDF documents, automatically index them into
 
 - **Multi-Document Ingestion**: Upload and index multiple PDFs simultaneously with SHA256-based duplicate detection.
 - **Traceable Text Chunking**: Recursive character text splitting preserving chunk IDs, file provenance, and page numbers.
+- **Ultra-Fast LLM Inference with Groq & Gemini**: Choose between **Google Gemini (1.5 Flash/Pro, 2.0 Flash)** and **Groq (Llama 3.3 70B, Llama 3.1 8B, Mixtral 8x7B)** for lightning-fast answers.
 - **Configurable Embeddings**: Seamlessly switch between cloud-based **Google Gemini `models/embedding-001`** and local offline **HuggingFace `sentence-transformers/all-MiniLM-L6-v2`**.
 - **Persistent Vector Store (ChromaDB)**: Local vector persistence with support for real-time document deletion and collection reset.
 - **Strict Anti-Hallucination Prompting**: System prompt strictly enforces answering exclusively from retrieved document chunks.
@@ -54,7 +55,7 @@ Users can upload single or multiple PDF documents, automatically index them into
                                   Prompt Template + Context
                                              │
                                              ▼
-                                  LLM (Gemini / GPT-4o)
+                                  LLM (Gemini / Groq Llama 3.3)
                                              │
                                              ▼
                                Grounded Answer + Citations
@@ -96,7 +97,7 @@ rag-document-qa/
 │
 ├── generation/
 │   ├── __init__.py
-│   └── llm.py                  # LLM Factory (Gemini 2.0 / 1.5 Flash / Pro & OpenAI)
+│   └── llm.py                  # LLM Factory (Gemini & Groq Models)
 │
 ├── rag/
 │   ├── __init__.py
@@ -121,22 +122,22 @@ rag-document-qa/
 
 ### 1. Prerequisites
 - Python 3.10 or higher
-- Google Gemini API Key (or OpenAI API Key)
+- Google Gemini API Key and/or Groq API Key
 
 ### 2. Setup Virtual Environment
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/rag-document-qa.git
-cd rag-document-qa
+git clone https://github.com/JakkenaSrikar/RAG-Document-QA-Chatbot.git
+cd RAG-Document-QA-Chatbot
 
 # Create and activate virtual environment
-# On Linux/macOS:
-python3 -m venv venv
-source venv/bin/activate
-
 # On Windows:
 python -m venv venv
 venv\Scripts\activate
+
+# On Linux/macOS:
+python3 -m venv venv
+source venv/bin/activate
 ```
 
 ### 3. Install Dependencies
@@ -153,7 +154,7 @@ cp .env.example .env
 Edit `.env`:
 ```env
 GOOGLE_API_KEY=your_gemini_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
+GROQ_API_KEY=your_groq_api_key_here
 
 LLM_PROVIDER=gemini
 LLM_MODEL=gemini-1.5-flash
@@ -188,7 +189,10 @@ Embedding models map high-dimensional text into dense mathematical vectors (e.g.
 ### 3. Why ChromaDB?
 ChromaDB is a purpose-built open-source vector store that enables local persistence, embedded in-process execution (eliminating heavy external database servers for prototyping), metadata filtering, and fast Approximate Nearest Neighbor (ANN) index searches using HNSW (Hierarchical Navigable Small World graphs).
 
-### 4. How Does This System Prevent Hallucinations?
+### 4. Why Groq for LLM Inference?
+Groq's LPU (Language Processing Unit) architecture delivers ultra-low latency token generation (up to 500+ tokens/second) for open-weight models like Llama 3.3 70B and Mixtral 8x7B, making RAG chatbots feel instantaneous compared to standard cloud API endpoints.
+
+### 5. How Does This System Prevent Hallucinations?
 1. **Explicit Grounding Instruction**: The system prompt strictly prohibits the LLM from using outside pre-training knowledge.
 2. **Explicit Refusal Instruction**: If the answer is absent from the retrieved chunks, the model is instructed to output a standardized refusal rather than guessing.
 3. **Traceable Citations**: Every answer is paired with the exact chunks and page numbers retrieved, enabling instant human verification.
@@ -197,7 +201,7 @@ ChromaDB is a purpose-built open-source vector store that enables local persiste
 
 ## 💼 Resume Bullet Points
 
-- **RAG-Based Document Q&A Chatbot | Python, LangChain, ChromaDB, Google Gemini / OpenAI, Streamlit**
-  - Engineered an end-to-end Retrieval-Augmented Generation (RAG) web app enabling semantic question-answering over multi-document PDF uploads.
+- **RAG-Based Document Q&A Chatbot | Python, LangChain, ChromaDB, Google Gemini, Groq, Streamlit**
+  - Engineered an end-to-end Retrieval-Augmented Generation (RAG) web app enabling semantic question-answering over multi-document PDF uploads with sub-second inference using Groq and Gemini.
   - Implemented an ingestion pipeline using PyPDF, recursive character chunking, and ChromaDB vector persistence with SHA256-based deduplication and metadata tracking.
   - Formulated strict anti-hallucination prompt templates with LangChain LCEL to ensure responses remain 100% grounded in retrieved contexts, complete with page-level citations.

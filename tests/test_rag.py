@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock
 from langchain_core.documents import Document
-from langchain_core.language_models.fake_chat_models import FakeChatModel
+from langchain_community.chat_models.fake import FakeListChatModel
 
 from ingestion.text_splitter import DocumentSplitterService
 from rag.chain import RAGChain, STRICT_RAG_SYSTEM_PROMPT
@@ -66,7 +66,7 @@ class TestRAGChain:
         )
         mock_retriever.get_relevant_documents_with_scores.return_value = [(mock_doc, 0.15)]
 
-        fake_llm = FakeChatModel(responses=["The solar panel efficiency is 22.5% according to solar.pdf (Page 2)."])
+        fake_llm = FakeListChatModel(responses=["The solar panel efficiency is 22.5% according to solar.pdf (Page 2)."])
         rag_chain = RAGChain(llm=fake_llm, retriever=mock_retriever)
 
         result = rag_chain.answer_question("What is the efficiency?")
@@ -81,7 +81,7 @@ class TestRAGChain:
         mock_retriever = MagicMock()
         mock_retriever.get_relevant_documents_with_scores.return_value = []
 
-        fake_llm = FakeChatModel(responses=[""])
+        fake_llm = FakeListChatModel(responses=[""])
         rag_chain = RAGChain(llm=fake_llm, retriever=mock_retriever)
 
         result = rag_chain.answer_question("What is the revenue?")
